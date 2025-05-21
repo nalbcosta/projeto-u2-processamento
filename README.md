@@ -2,13 +2,18 @@
 
 ## 📄 Capa
 
-**Instituição:** [Nome da Instituição]  
-**Curso:** [Nome do Curso]  
+**Instituição:** UNIT - Universidade Tiradentes (Sergipe)  
+**Curso:** Ciência da Computação 
 **Disciplina:** Processamento de Imagens  
-**Unidade:** Unidade 2  
-**Aluno:** [Seu Nome Completo]  
-**Professor:** [Nome do Professor]  
-**Data:** [Data de Entrega]  
+**Unidade:** Unidade II  
+**Aluno(s):**
+- Nalbert Schwank Costa Santos
+- Luiz Fernando Brito Ferreira
+- Heitor Barboza
+- Marina Gabriela
+
+**Professora:** Msc. Layse Santos Souza
+**Data:** Em andamento (02/06/2025)
 
 ---
 
@@ -21,6 +26,7 @@ Este projeto é a solução proposta para a Atividade Avaliativa da Unidade 2 da
 ## 🎯 Objetivos
 
 - Desenvolver um jogo 2D com animações suaves, efeitos visuais e sonoros.
+- Ter pelo menos um personagem com caracteristicas e falas.
 - Aplicar técnicas de segmentação de imagem usando OpenCV.
 - Garantir detecção de colisões com resposta visual e funcional.
 - Criar uma experiência de jogo fluida e visualmente agradável.
@@ -59,3 +65,50 @@ Para atender aos critérios estabelecidos, o projeto seguiu as etapas abaixo:
    ```bash
    git clone https://github.com/seu-usuario/shadowrun-game.git
    cd shadowrun-game
+   ```
+2. Instale as dependências:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Execute o jogo:
+   ```bash
+   python main.py
+   ```
+4. Divirta-se!
+
+---
+
+## 🚀 Funcionalidades Implementadas
+
+- Menus (inicial, in-game, game over) com navegação por teclado e trilha sonora dedicada.
+- Jogabilidade beat 'em up: movimento lateral, pulo, ataque, múltiplos inimigos com IA e animações completas.
+- Três tipos de inimigos: Esqueleto, Cogumelo e Voador, cada um com sprites e comportamentos próprios.
+- Sistema de spawn temporizado para inimigos, surgindo progressivamente na fase.
+- Sistema de vida do player com invencibilidade temporária após dano e barra de vida na UI.
+- Detecção de colisão e resposta visual/sonora (efeitos e sons de impacto).
+- Parallax no background para maior profundidade visual.
+- UI responsiva com ícones de teclado, legendas e feedback visual aprimorado.
+- Transições suaves de música entre menus, fase e combate.
+- Efeitos visuais e sonoros integrados.
+
+---
+
+## 📈 Backlog / Linha do Tempo do Projeto
+
+- [x] Estruturação do projeto e setup do Pygame
+- [x] Implementação do player com movimento, pulo e ataque
+- [x] Criação do menu inicial, menu in-game e game over
+- [x] Sistema de animação do player e inimigos (idle, walk, attack, hurt, die)
+- [x] Refatoração para beat 'em up: movimento lateral, ataque, IA básica dos inimigos
+- [x] Implementação de múltiplos inimigos (Esqueleto, Cogumelo, Voador) com sprites próprios
+- [x] Sistema de spawn temporizado para inimigos
+- [x] Sistema de vida do player e barra de vida na UI
+- [x] Parallax no background
+- [x] UI aprimorada com ícones, legendas e responsividade
+- [x] Sistema de áudio: SFX, múltiplas trilhas e transições suaves
+- [x] Efeitos visuais de impacto e feedback
+- [ ] Integração de segmentação de imagem com OpenCV (em andamento)
+- [ ] Filtros, brilhos e distorções avançadas (em andamento)
+- [ ] Ajustes finais, polimento e documentação
+
+---
