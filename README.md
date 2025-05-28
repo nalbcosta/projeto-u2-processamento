@@ -1,4 +1,4 @@
-# 🎮 ShadowRun – A Jornada Pixelada
+# 🎮 Lone Samurai – Beat'em Up
 
 ## 📄 Capa
 
@@ -19,7 +19,7 @@
 
 ## 📌 Apresentação
 
-Este projeto é a solução proposta para a Atividade Avaliativa da Unidade 2 da disciplina de Processamento de Imagens. O desafio consistia na criação de um jogo 2D que utilizasse técnicas de computação gráfica e processamento de imagens para criar uma experiência visual e interativa fluida e criativa. O jogo desenvolvido é chamado **ShadowRun**.
+Este projeto é a solução proposta para a Atividade Avaliativa da Unidade 2 da disciplina de Processamento de Imagens. O desafio consistia na criação de um jogo 2D que utilizasse técnicas de computação gráfica e processamento de imagens para criar uma experiência visual e interativa fluida e criativa. O jogo desenvolvido é chamado **Lost Samurai**.
 
 ---
 
@@ -63,8 +63,8 @@ Para atender aos critérios estabelecidos, o projeto seguiu as etapas abaixo:
 
 1. Clone este repositório:
    ```bash
-   git clone https://github.com/seu-usuario/shadowrun-game.git
-   cd shadowrun-game
+   git clone https://github.com/seu-usuario/lostsamurai-game.git
+   cd lostsamurai-game
    ```
 2. Instale as dependências:
    ```bash
