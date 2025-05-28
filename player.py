@@ -14,7 +14,7 @@ class Player:
         self.gravidade = 1.5
         self.forca_pulo = -20
         self.chao = self.y  # topo do sprite encosta no chão
-        self.velocidade = 6  # velocidade lateral
+        self.velocidade = 3  # velocidade lateral reduzida
         self.rect = pygame.Rect(self.x, self.y, self.largura, self.altura)
         # Carrega animações do Samurai (Idle e Run apenas)
         self.animacoes = {
@@ -33,6 +33,9 @@ class Player:
         self.ataque_duracao = 12  # frames
         self.direcao = 1  # 1: direita, -1: esquerda
         self.vida = 3
+        self.vida_max = 3
+        self.velocidade = 3
+        self.forca = 3  # Aumenta o dano do ataque do player
         self.invencivel = False
         self.invencivel_timer = 0
         self.invencivel_cooldown = 40
@@ -58,11 +61,11 @@ class Player:
             self.frame = 0
 
     def get_ataque_rect(self):
-        # Retângulo de ataque na frente do player
+        # Retângulo de ataque na frente do player (maior hitbox)
         if self.direcao == 1:
-            return pygame.Rect(self.x + self.largura, self.y + 20, 40, self.altura - 40)
+            return pygame.Rect(self.x + self.largura - 10, self.y + 10, 60, self.altura - 20)
         else:
-            return pygame.Rect(self.x - 40, self.y + 20, 40, self.altura - 40)
+            return pygame.Rect(self.x - 50, self.y + 10, 60, self.altura - 20)
 
     def levar_dano(self):
         if not self.invencivel:
