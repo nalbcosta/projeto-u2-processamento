@@ -1,25 +1,26 @@
+# obstacle.py - Inimigos do Lost Samurai
+# Define as classes Enemy, MushroomEnemy e FlyingEnemy, responsáveis pela IA, animação e colisão dos inimigos
+
 import pygame
 from utils import carregar_spritesheet
 
 class Enemy:
     def __init__(self, x, y, largura=64, altura=64, spawn_side=None):
+        """
+        Inicializa um inimigo padrão (esqueleto).
+        x, y: posição inicial (y é o chão onde o topo do sprite encosta)
+        largura, altura: dimensões do sprite
+        spawn_side: não utilizado, compatível com outros inimigos
+        """
         self.sprite_largura = largura
         self.sprite_altura = altura
-        # Aparição: inimigo pode surgir da esquerda ou direita fora da tela
-        if spawn_side == 'left':
-            self.x = -self.sprite_largura
-            self.direcao = 1
-        elif spawn_side == 'right':
-            self.x = pygame.display.get_surface().get_width() + self.sprite_largura
-            self.direcao = -1
-        else:
-            self.x = x
-            self.direcao = -1
+        self.x = x
+        self.direcao = -1  # -1: esquerda, 1: direita
         self.y = y - self.sprite_altura
         self.largura = self.sprite_largura
         self.altura = self.sprite_altura
-        self.rect = pygame.Rect(self.x, self.y, self.largura, self.altura)
-        # Carregar todas as animações do inimigo
+        self.rect = pygame.Rect(self.x, self.y, self.largura, self.altura)  # Hitbox do inimigo
+        # Carrega animações do inimigo
         self.animations = {}
         sprites_info = {
             'idle':   ('assets/sprite/enemy/Skeleton_01_White_Idle.png', 8),
@@ -41,20 +42,21 @@ class Enemy:
         self.vivo = True
         self.vida = 3
         self.vida_max = 3
-        self.velocidade = 1 
-        self.patrulha_limite = (x-60, x+60)
-        self.anim_speed = 8
-        # IA
+        self.velocidade = 1  # Velocidade de patrulha
+        self.patrulha_limite = (x-60, x+60)  # Limites de patrulha
+        self.anim_speed = 8  # Velocidade da animação
+        # --- IA e ataque ---
         self.estado = 'patrulha'  # patrulha, perseguindo, atacando, morto
-        self.tempo_ataque = 0
-        self.cooldown_ataque = 40  # frames entre ataques
-        self.distancia_visao = 180
-        self.distancia_ataque = 48
-        self.atacando = False
-        self.ataque_frame_max = 5  # frame para considerar hit
-        self.ataque_frame_atual = 0
+        self.tempo_ataque = 0  # Cooldown do ataque
+        self.cooldown_ataque = 40  # Frames entre ataques
+        self.distancia_visao = 180  # Distância para perseguir o player
+        self.distancia_ataque = 48  # Distância para atacar
+        self.atacando = False  # Está atacando?
+        self.ataque_frame_max = 5  # Frame do hit
+        self.ataque_frame_atual = 0  # Frame atual do ataque
 
     def set_animation(self, anim):
+        """Troca a animação atual do inimigo."""
         if anim != self.current_animation and anim in self.animations:
             self.last_animation = self.current_animation
             self.current_animation = anim
@@ -62,14 +64,15 @@ class Enemy:
             self.frame_timer = 0
 
     def update(self, player=None):
-        # Remove qualquer lógica de pulo global dos inimigos
-        # --- ANIMAÇÃO ROBUSTA (aplicável a todos inimigos) ---
+        """Atualiza IA, física e animação do inimigo."""
+        # Morte
         if hasattr(self, 'morrendo') and self.morrendo:
             if self.morte_timer > 0:
                 self.morte_timer -= 1
             else:
                 self.morrendo = False
                 self.x = -9999
+                self.rect.x = self.x
             self.set_animation('die')
             self._anim_update()
             return
@@ -77,7 +80,7 @@ class Enemy:
             self.set_animation('die')
             self._anim_update()
             return
-        # IA: sempre persegue o player se estiver vivo
+        # IA: persegue ou patrulha
         if player:
             if player.x > self.x:
                 self.direcao = 1
@@ -99,10 +102,9 @@ class Enemy:
         else:
             self.estado = 'patrulha'
             self.atacando = False
-        # Lógica de cada estado
+        # Lógica de movimento e animação
         if self.estado == 'patrulha':
             self.set_animation('walk')
-            # Corrige bug: só anda se não estiver atacando
             if not self.atacando:
                 self.x += self.direcao * self.velocidade
                 if self.x < self.patrulha_limite[0] or self.x > self.patrulha_limite[1]:
@@ -110,7 +112,6 @@ class Enemy:
             self.rect.x = self.x
         elif self.estado == 'perseguindo':
             self.set_animation('walk')
-            # Corrige bug: só anda se não estiver atacando
             if not self.atacando:
                 self.x += self.direcao * (self.velocidade + 1)
             self.rect.x = self.x
@@ -123,47 +124,56 @@ class Enemy:
         # Cooldown de ataque
         if self.tempo_ataque > 0:
             self.tempo_ataque -= 1
+        # Atualiza hitbox
+        self.rect.x = self.x
+        self.rect.y = self.y
         self._anim_update()
 
     def _anim_update(self):
+        """Atualiza o frame da animação do inimigo."""
         frames = self.animations.get(self.current_animation, [])
         if frames:
             self.frame_timer += 1
             if self.frame_timer >= self.anim_speed:
                 self.frame_timer = 0
-                self.frame += 1
-                if self.frame >= len(frames):
-                    if self.current_animation == 'attack':
-                        self.frame = 0
-                        self.atacando = False
-                        self.tempo_ataque = self.cooldown_ataque
-                        self.set_animation('idle')
-                    elif self.current_animation == 'die':
-                        self.frame = len(frames)-1
-                        self.vivo = False
-                    elif self.current_animation == 'hurt':
-                        self.set_animation('idle')
-                        self.frame = 0
-                    else:
-                        self.frame = 0
-            # Controle de ataque (frame de hit)
+                # Se morreu, não reinicia a animação de morte
+                if self.current_animation == 'die':
+                    if self.frame < len(frames) - 1:
+                        self.frame += 1
+                else:
+                    self.frame += 1
+                    if self.frame >= len(frames):
+                        if self.current_animation == 'attack':
+                            self.frame = 0
+                            self.atacando = False
+                            self.tempo_ataque = self.cooldown_ataque
+                            self.set_animation('idle')
+                        elif self.current_animation == 'hurt':
+                            self.set_animation('idle')
+                            self.frame = 0
+                        else:
+                            self.frame = 0
+            # Atualiza frame de hit do ataque
             if self.current_animation == 'attack' and self.atacando:
                 self.ataque_frame_atual = self.frame
 
     def draw(self, tela):
-        if not self.vivo and self.current_animation != 'die':
+        """Desenha o inimigo na tela."""
+        if not self.vivo and (not hasattr(self, 'morrendo') or not self.morrendo):
             return
         frames = self.animations.get(self.current_animation, [])
-        # Corrige flip do sprite: -1 esquerda, 1 direita
         if frames:
             sprite = frames[self.frame]
+            # Corrige flip: só inverte para a esquerda, nunca para a direita
             if self.direcao == -1:
                 sprite = pygame.transform.flip(sprite, True, False)
-            tela.blit(sprite, (self.x, self.y))
+            # Desenha o sprite na posição da hitbox para evitar "tremedeira"
+            tela.blit(sprite, (self.rect.x, self.rect.y))
         else:
             pygame.draw.rect(tela, (255, 0, 0), self.rect)
 
     def draw_offset(self, tela, offset_x):
+        """Desenha o inimigo considerando offset de câmera (não usado atualmente)."""
         frames = self.animations.get(self.current_animation, [])
         if frames:
             sprite = frames[self.frame]
@@ -174,6 +184,7 @@ class Enemy:
             pygame.draw.rect(tela, (255, 0, 0), self.rect.move(offset_x, 0))
 
     def levar_dano(self, dano=1):
+        """Aplica dano ao inimigo e troca animação para hurt ou die."""
         self.vida -= dano
         if self.vida <= 0:
             self.vida = 0
@@ -185,21 +196,25 @@ class Enemy:
             self.set_animation('hurt')
 
     def colidiu(self, player):
+        """Retorna True se o inimigo colidiu com o player."""
         return self.rect.colliderect(player.rect)
 
     def pode_atacar(self, player):
-        # Só pode atacar se estiver em cooldown 0 e próximo do player
+        """Retorna True se pode atacar o player (distância e cooldown)."""
         distancia = abs((self.x + self.largura//2) - (player.x + player.largura//2))
         return self.tempo_ataque == 0 and distancia < self.distancia_ataque
 
     def ataque_acertou(self, player):
-        # Só acerta se estiver no frame certo da animação de ataque
+        """Retorna True se o ataque do inimigo acertou o player (no frame certo)."""
         if self.current_animation == 'attack' and self.atacando and self.ataque_frame_atual == self.ataque_frame_max:
             return self.colidiu(player)
         return False
 
 class MushroomEnemy(Enemy):
     def __init__(self, x, y, largura=64, altura=64, spawn_side=None):
+        """
+        Inicializa um inimigo tipo cogumelo.
+        """
         super().__init__(x, y, largura, altura, spawn_side)
         sprites_info = {
             'idle':   ('assets/sprite/enemy 2/Mushroom-Idle.png', 7),
@@ -226,6 +241,9 @@ class MushroomEnemy(Enemy):
 
 class FlyingEnemy(Enemy):
     def __init__(self, x, y, largura=64, altura=64, spawn_side=None):
+        """
+        Inicializa um inimigo voador.
+        """
         super().__init__(x, y, largura, altura, spawn_side)
         sprites_info = {
             'idle':   ('assets/sprite/enemy 3/Enemy3-Idle.png', 8),
@@ -254,14 +272,14 @@ class FlyingEnemy(Enemy):
         self.attack_anim_playing = False
 
     def update(self, player=None):
-        # Remove qualquer lógica de pulo global dos inimigos
-        # --- ANIMAÇÃO ROBUSTA (aplicável a todos inimigos) ---
+        """Atualiza IA, física e animação do inimigo voador."""
         if hasattr(self, 'morrendo') and self.morrendo:
             if self.morte_timer > 0:
                 self.morte_timer -= 1
             else:
                 self.morrendo = False
                 self.x = -9999
+                self.rect.x = self.x
             self.set_animation('die')
             self._anim_update()
             return
@@ -292,10 +310,9 @@ class FlyingEnemy(Enemy):
         else:
             self.estado = 'patrulha'
             self.atacando = False
-        # Lógica de cada estado
+        # Lógica de movimento e animação
         if self.estado == 'patrulha':
             self.set_animation('walk')
-            # Corrige bug: só anda se não estiver atacando
             if not self.atacando:
                 self.x += self.direcao * self.velocidade
                 if self.x < self.patrulha_limite[0] or self.x > self.patrulha_limite[1]:
@@ -303,7 +320,6 @@ class FlyingEnemy(Enemy):
             self.rect.x = self.x
         elif self.estado == 'perseguindo':
             self.set_animation('walk')
-            # Corrige bug: só anda se não estiver atacando
             if not self.atacando:
                 self.x += self.direcao * (self.velocidade + 1)
             self.rect.x = self.x
@@ -362,6 +378,6 @@ class FlyingEnemy(Enemy):
                         self.frame = 0
                     else:
                         self.frame = 0
-            # Controle de ataque (frame de hit)
+            # Atualiza frame de hit do ataque
             if (anim_key == 'attack_start' or anim_key == 'attack_end') and self.atacando:
                 self.ataque_frame_atual = self.frame

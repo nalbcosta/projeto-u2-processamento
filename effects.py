@@ -14,5 +14,3 @@ def aplicar_efeito_sombra(surface):
     sombra = np.transpose(sombra, (1, 0, 2))
     surf_sombra = pygame.surfarray.make_surface(sombra)
     return surf_sombra
-
-# Você pode criar outros efeitos, como brilho, distorção, etc.
