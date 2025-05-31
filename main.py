@@ -108,6 +108,66 @@ def checar_troca_musica():
             pygame.mixer.music.play(-1)
             musica_pendente = None
 
+# ===== HUD E MENU VISUAIS =====
+def desenhar_texto_sombra(tela, texto, fonte, cor, sombra_cor, pos, deslocamento=(2,2)):
+    sombra = fonte.render(texto, True, sombra_cor)
+    tela.blit(sombra, (pos[0]+deslocamento[0], pos[1]+deslocamento[1]))
+    texto_img = fonte.render(texto, True, cor)
+    tela.blit(texto_img, pos)
+
+def fade_in(tela, cor=(0,0,0), duracao=30):
+    fade = pygame.Surface((tela.get_width(), tela.get_height()))
+    fade.fill(cor)
+    for alpha in range(255, -1, -int(255/duracao)):
+        fade.set_alpha(alpha)
+        tela.blit(fade, (0,0))
+        pygame.display.flip()
+        pygame.time.delay(8)
+
+def fade_out(tela, cor=(0,0,0), duracao=30):
+    fade = pygame.Surface((tela.get_width(), tela.get_height()))
+    fade.fill(cor)
+    for alpha in range(0, 256, int(255/duracao)):
+        fade.set_alpha(alpha)
+        tela.blit(fade, (0,0))
+        pygame.display.flip()
+        pygame.time.delay(8)
+
+def carregar_icone(nome):
+    try:
+        return pygame.image.load(f'assets/icons/{nome}').convert_alpha()
+    except:
+        return None
+
+def draw_hud(tela, player, vida_img=None, arma_img=None):
+    # Vida com sombra e efeito de piscar/tremer
+    for i in range(player.vida_max):
+        x = 20 + i*40
+        y = tela.get_height()-60
+        if vida_img:
+            img = vida_img.copy()
+            if i < player.vida:
+                if hasattr(player, 'levou_dano') and player.levou_dano and i == player.vida-1:
+                    # Piscar/tremer
+                    if pygame.time.get_ticks()//100 % 2 == 0:
+                        img.set_alpha(120)
+                        x += random.randint(-2,2)
+                        y += random.randint(-2,2)
+                else:
+                    img.set_alpha(255)
+            else:
+                img.set_alpha(60)
+            tela.blit(img, (x, y))
+        else:
+            cor = (200,0,0) if i < player.vida else (80,30,30)
+            pygame.draw.rect(tela, cor, (x, y, 32, 32), border_radius=8)
+    # Arma equipada
+    if arma_img:
+        tela.blit(arma_img, (20, tela.get_height()-110))
+    # Sombra/brilho nos textos HUD
+    fonte = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 28)
+    desenhar_texto_sombra(tela, f'Rodada: {getattr(player, "ronda", "-")}', fonte, (255,255,255), (0,0,0), (tela.get_width()-180, tela.get_height()-50))
+
 # =====================
 # LOOP PRINCIPAL DO JOGO
 # =====================
@@ -173,6 +233,9 @@ def main():
         # =====================
         # LOOP DA RONDA
         # =====================
+        # Carregar imagens do HUD (vida, arma) uma vez
+        vida_img = carregar_icone('HUD/heart.png')
+        arma_img = carregar_icone('HUD/sword.png')
         while rodando:
             relogio.tick(fps)
             checar_troca_musica()
@@ -343,17 +406,22 @@ def main():
             player.draw(tela)
             for inimigo in inimigos:
                 inimigo.draw(tela)
-                # Barra de vida acima da cabeça do inimigo
+                # Barra de vida estilizada do inimigo
                 if inimigo.vivo:
-                    barra_w = 40
-                    barra_h = 6
+                    barra_w = 56
+                    barra_h = 12
                     vida_pct = max(0, inimigo.vida / inimigo.vida_max)
                     barra_x = int(inimigo.x + inimigo.largura//2 - barra_w//2)
-                    barra_y = int(inimigo.y - 12)
-                    pygame.draw.rect(tela, (60,60,60), (barra_x, barra_y, barra_w, barra_h))
-                    pygame.draw.rect(tela, (200,0,0), (barra_x, barra_y, int(barra_w*vida_pct), barra_h))
-            for i in range(player.vida):
-                pygame.draw.rect(tela, (200,0,0), (20 + i*30, tela_altura-40, 24, 24), border_radius=6)
+                    barra_y = int(inimigo.y - 24)
+                    # Fundo barra
+                    pygame.draw.rect(tela, (40,40,40), (barra_x, barra_y, barra_w, barra_h), border_radius=8)
+                    # Vida
+                    pygame.draw.rect(tela, (220,40,40), (barra_x+2, barra_y+2, int((barra_w-4)*vida_pct), barra_h-4), border_radius=6)
+                    # Brilho
+                    if vida_pct > 0:
+                        pygame.draw.rect(tela, (255,180,180), (barra_x+2, barra_y+2, int((barra_w-4)*vida_pct), 4), border_radius=3)
+            # HUD estilizado
+            draw_hud(tela, player, vida_img, arma_img)
             # Exibe fala
             if fala_timer > 0 and fala:
                 texto_fala = fonte.render(fala, True, (30,30,30))
@@ -411,79 +479,95 @@ def main():
                         game_over = True
 
 def menu_inicial():
+    fade_in(tela, (0,0,0), duracao=24)
     fadeout_and_play_async(OST_MENU)
     menu_ativo = True
-    fonte_menu = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 48)
-    fonte_opcao = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 32)
+    fonte_menu = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 64)
+    fonte_opcao = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 36)
     opcoes = ['Iniciar', 'Opcoes', 'Sair']
+    icones = ['HUD/sword.png', 'HUD/gear.png', 'HUD/exit.png']
     selecionado = 0
+    som_nav = pygame.mixer.Sound('assets/sfx/Movimento.ogg')
+    som_nav.set_volume(0.5)
+    cursor_img = carregar_icone('HUD/cursor.png')
+    parallax_offset = 0
     while menu_ativo:
         checar_troca_musica()
-        tela.fill((30, 10, 30))
-        titulo = fonte_menu.render('Lost Samurai', True, (255, 255, 255))
-        tela.blit(titulo, (tela_largura//2 - titulo.get_width()//2, 60))
+        # Fundo animado com parallax
+        parallax_offset = (parallax_offset + 0.5) % tela_largura
+        for idx, layer in enumerate(background_layers):
+            speed = 0.2 + idx*0.05
+            x = int(-parallax_offset*speed) % tela_largura
+            tela.blit(pygame.transform.scale(layer, (tela_largura, tela_altura)), (x, 0))
+            if x > 0:
+                tela.blit(pygame.transform.scale(layer, (tela_largura, tela_altura)), (x-tela_largura, 0))
+        # Título com sombra
+        desenhar_texto_sombra(tela, 'Lost Samurai', fonte_menu, (255,255,255), (0,0,0), (tela_largura//2-220, 60))
+        # Opções
         for i, opcao in enumerate(opcoes):
-            cor = (255, 255, 0) if i == selecionado else (255, 255, 255)
-            texto = fonte_opcao.render(opcao, True, cor)
-            tela.blit(texto, (tela_largura//2 - texto.get_width()//2, 180 + i*60))
+            y = 220 + i*80
+            cor = (255,255,0) if i==selecionado else (255,255,255)
+            sombra = (60,60,0) if i==selecionado else (0,0,0)
+            # Retângulo destacado
+            if i==selecionado:
+                pygame.draw.rect(tela, (255,255,180), (tela_largura//2-180, y-10, 360, 60), border_radius=18)
+                pygame.draw.rect(tela, (200,200,80), (tela_largura//2-180, y-10, 360, 60), 4, border_radius=18)
+            # Ícone
+            icone = carregar_icone(icones[i])
+            if icone:
+                tela.blit(pygame.transform.scale(icone, (48,48)), (tela_largura//2-160, y))
+            desenhar_texto_sombra(tela, opcao, fonte_opcao, cor, sombra, (tela_largura//2-90, y+8))
+        # Cursor customizado animado
+        if cursor_img:
+            tela.blit(cursor_img, (tela_largura//2-200, 220 + selecionado*80 + 8))
         pygame.display.flip()
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
+                fade_out(tela, (0,0,0), duracao=18)
                 pygame.quit()
                 sys.exit()
             if evento.type == pygame.KEYDOWN:
                 if evento.key in [pygame.K_UP, pygame.K_w]:
                     selecionado = (selecionado - 1) % len(opcoes)
+                    som_nav.play()
                 if evento.key in [pygame.K_DOWN, pygame.K_s]:
                     selecionado = (selecionado + 1) % len(opcoes)
+                    som_nav.play()
                 if evento.key == pygame.K_RETURN or evento.key == pygame.K_SPACE:
+                    fade_out(tela, (0,0,0), duracao=18)
                     if opcoes[selecionado] == 'Iniciar':
                         menu_ativo = False
                     elif opcoes[selecionado] == 'Opcoes':
                         menu_opcoes()
+                        fade_in(tela, (0,0,0), duracao=18)
                     elif opcoes[selecionado] == 'Sair':
                         pygame.quit()
                         sys.exit()
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            mouse_clicked = False
-            op_rects = []
-            for i, opcao in enumerate(opcoes):
-                cor = (255, 255, 0) if i == selecionado else (255, 255, 255)
-                texto = fonte_opcao.render(opcao, True, cor)
-                rect = texto.get_rect(center=(tela_largura//2, 180 + i*60))
-                tela.blit(texto, rect)
-                op_rects.append(rect)
-            pygame.display.flip()
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key in [pygame.K_UP, pygame.K_w]:
-                        selecionado = (selecionado - 1) % len(opcoes)
-                    if evento.key in [pygame.K_DOWN, pygame.K_s]:
-                        selecionado = (selecionado + 1) % len(opcoes)
-                    if evento.key == pygame.K_RETURN or evento.key == pygame.K_SPACE:
-                        if opcoes[selecionado] == 'Iniciar':
-                            menu_ativo = False
-                        elif opcoes[selecionado] == 'Opcoes':
-                            menu_opcoes()
-                        elif opcoes[selecionado] == 'Sair':
-                            pygame.quit()
-                            sys.exit()
-                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                    mouse_clicked = True
-            for i, rect in enumerate(op_rects):
-                if rect.collidepoint(mouse_x, mouse_y):
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_clicked = False
+        op_rects = []
+        for i, opcao in enumerate(opcoes):
+            y = 220 + i*80
+            rect = pygame.Rect(tela_largura//2-180, y-10, 360, 60)
+            op_rects.append(rect)
+        for evento in pygame.event.get():
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                mouse_clicked = True
+        for i, rect in enumerate(op_rects):
+            if rect.collidepoint(mouse_x, mouse_y):
+                if i != selecionado:
                     selecionado = i
-                    if mouse_clicked:
-                        if opcoes[i] == 'Iniciar':
-                            menu_ativo = False
-                        elif opcoes[i] == 'Opcoes':
-                            menu_opcoes()
-                        elif opcoes[i] == 'Sair':
-                            pygame.quit()
-                            sys.exit()
+                    som_nav.play()
+                if mouse_clicked:
+                    fade_out(tela, (0,0,0), duracao=18)
+                    if opcoes[i] == 'Iniciar':
+                        menu_ativo = False
+                    elif opcoes[i] == 'Opcoes':
+                        menu_opcoes()
+                        fade_in(tela, (0,0,0), duracao=18)
+                    elif opcoes[i] == 'Sair':
+                        pygame.quit()
+                        sys.exit()
 
 def menu_ingame():
     fadeout_and_play_async(OST_MENU_INGAME)
@@ -583,6 +667,9 @@ def menu_opcoes():
     volume_sfx = som_pulo.get_volume()
     resolucao_idx = next((i for i, r in enumerate(resolucoes) if r == (tela_largura, tela_altura)), 0)
     fps_idx = fps_opcoes.index(fps) if fps in fps_opcoes else 1
+    # Carregar imagens do HUD (vida, arma) uma vez
+    vida_img = carregar_icone('HUD/heart.png')
+    arma_img = carregar_icone('HUD/sword.png')
     while True:
         checar_troca_musica()
         tela.fill((30, 10, 30))
