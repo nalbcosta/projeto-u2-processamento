@@ -2,7 +2,7 @@
 # Responsável por movimentação, animação, ataque e efeitos do personagem controlado
 
 import pygame
-from effects import aplicar_efeito_sombra
+from effects import aplicar_efeito_sombra, aplicar_efeito_blur, aplicar_efeito_tint, aplicar_efeito_shake, aplicar_efeito_fade, aplicar_efeito_sombra_projetada
 from utils import carregar_spritesheet
 
 class Player:
@@ -55,6 +55,14 @@ class Player:
         self.invencivel_timer = 0  # Timer de invencibilidade
         self.invencivel_cooldown = 40  # Duração da invencibilidade (frames)
 
+        # --- STATUS DE EFEITOS ESPECIAIS ---
+        self.stunned = False  # Atordoado
+        self.stunned_timer = 0
+        self.powerup = False  # Powerup ativo
+        self.powerup_timer = 0
+        self.levou_dano = False  # Levou dano recentemente
+        self.levou_dano_timer = 0
+
         # --- LIMPEZA DE ATRIBUTOS OBSOLETOS ---
         # Nenhum atributo obsoleto detectado para remoção
 
@@ -89,12 +97,14 @@ class Player:
         else:
             return pygame.Rect(self.x - 50, self.y + 10, 60, self.altura - 20)
 
-    def levar_dano(self):
+    def levar_dano(self, dano=1):
         """Reduz vida e ativa invencibilidade temporária."""
         if not self.invencivel:
-            self.vida -= 1
+            self.vida -= dano
             self.invencivel = True
             self.invencivel_timer = self.invencivel_cooldown
+            self.levou_dano = True
+            self.levou_dano_timer = 10  # Duração do efeito de levou_dano
 
     def get_hitbox(self):
         """Retorna o hitbox do player igual ao do inimigo (64x64), centralizado no sprite."""
@@ -153,23 +163,84 @@ class Player:
             self.invencivel_timer -= 1
             if self.invencivel_timer <= 0:
                 self.invencivel = False
+        # Timer de atordoamento
+        if self.stunned:
+            self.stunned_timer -= 1
+            if self.stunned_timer <= 0:
+                self.stunned = False
+        # Timer de powerup
+        if self.powerup:
+            self.powerup_timer -= 1
+            if self.powerup_timer <= 0:
+                self.powerup = False
+        # Timer de levou_dano
+        if self.levou_dano:
+            self.levou_dano_timer -= 1
+            if self.levou_dano_timer <= 0:
+                self.levou_dano = False
+
+        # Detecta início da corrida para tocar som
+        if hasattr(self, 'ultimo_estado_corrida'):
+            if self.acao == 'run' and not self.ultimo_estado_corrida:
+                try:
+                    from main import som_corrida
+                    som_corrida.play()
+                except Exception:
+                    pass
+            self.ultimo_estado_corrida = (self.acao == 'run')
+        else:
+            self.ultimo_estado_corrida = (self.acao == 'run')
+        # Detecta pouso do pulo para tocar som
+        if hasattr(self, 'ultimo_no_ar'):
+            if not self.pulando and self.ultimo_no_ar:
+                try:
+                    from main import som_pouso
+                    som_pouso.play()
+                except Exception:
+                    pass
+            self.ultimo_no_ar = self.pulando
+        else:
+            self.ultimo_no_ar = self.pulando
 
     def draw(self, tela):
-        """Desenha o player na tela, aplicando efeito e flip se necessário."""
+        """Desenha o player na tela, aplicando efeitos visuais e flip se necessário."""
         sprite = self.sprite_original
-        if self.efeito:
-            sprite = aplicar_efeito_sombra(sprite)
+        pos = (self.x, self.y)
+
+        # Exemplo: aplicar sombra projetada sempre
+        sprite = aplicar_efeito_sombra_projetada(sprite, offset=(8,8), shadow_color=(0,0,0), alpha=120)
+        pos = (self.x, self.y)  # Ajuste se quiser compensar o offset
+
+        # Exemplo: aplicar blur se estiver atordoado
+        if hasattr(self, 'stunned') and self.stunned:
+            sprite = aplicar_efeito_blur(sprite, ksize=7)
+
+        # Exemplo: aplicar tint se estiver com powerup
+        if hasattr(self, 'powerup') and self.powerup:
+            sprite = aplicar_efeito_tint(sprite, color=(0,255,0), alpha=100)
+
+        # Exemplo: aplicar fade se estiver invencível
+        if self.invencivel:
+            sprite = aplicar_efeito_fade(sprite, alpha=128)
+
+        # Exemplo: shake ao levar dano
+        if hasattr(self, 'levou_dano') and self.levou_dano:
+            pos = aplicar_efeito_shake(pos, intensidade=6)
+
+        # Flip horizontal se necessário
         if self.direcao == -1:
             sprite = pygame.transform.flip(sprite, True, False)
-        tela.blit(sprite, (self.x, self.y))
+        tela.blit(sprite, pos)
+
+        # Dica: ajuste as condições conforme o seu sistema de status/efeitos
 
     def aplicar_efeito(self):
-        """Ativa efeito visual temporário (ex: sombra)."""
+        """Ativa efeito visual temporário."""
         self.efeito = True
         self.efeito_timer = 30
 
     def draw_offset(self, tela, offset_x):
-        """Desenha o player considerando offset de câmera (não usado atualmente)."""
+        """Desenha o player considerando offset de câmera."""
         if hasattr(self, 'animations') and self.acao in self.animations:
             sprite = self.animations[self.acao][self.frame]
             if self.direcao == -1:

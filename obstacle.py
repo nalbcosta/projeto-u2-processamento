@@ -43,6 +43,7 @@ class Enemy:
         self.vida = 3
         self.vida_max = 3
         self.velocidade = 1  # Velocidade de patrulha
+        self.forca = 1       # Dano do inimigo
         self.patrulha_limite = (x-60, x+60)  # Limites de patrulha
         self.anim_speed = 8  # Velocidade da animação
         # --- IA e ataque ---
@@ -136,7 +137,6 @@ class Enemy:
             self.frame_timer += 1
             if self.frame_timer >= self.anim_speed:
                 self.frame_timer = 0
-                # Se morreu, não reinicia a animação de morte
                 if self.current_animation == 'die':
                     if self.frame < len(frames) - 1:
                         self.frame += 1
@@ -194,6 +194,10 @@ class Enemy:
             self.morte_timer = len(self.animations['die']) * self.anim_speed
         else:
             self.set_animation('hurt')
+
+    def causar_dano(self, player):
+        """Aplica dano ao player usando a força do inimigo."""
+        player.levar_dano(self.forca)
 
     def colidiu(self, player):
         """Retorna True se o inimigo colidiu com o player."""

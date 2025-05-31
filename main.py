@@ -34,12 +34,15 @@ PRETO = (0, 0, 0)
 # =====================
 # SONS E MÚSICAS
 # =====================
-som_pulo = pygame.mixer.Sound('assets/sfx/Retro Jump 01.wav')
-som_colisao = pygame.mixer.Sound('assets/sfx/Retro Impact Punch 07.wav')
-som_ataque = pygame.mixer.Sound('assets/sfx/Retro Impact Punch 07.wav')
+som_pulo = pygame.mixer.Sound('assets/sfx/Dirt Jump.ogg')
+som_pouso = pygame.mixer.Sound('assets/sfx/Dirt Land.ogg')
+som_colisao = pygame.mixer.Sound('assets/sfx/Sword Impact Hit 1.wav')
+som_ataque = pygame.mixer.Sound('assets/sfx/Sword Attack 1.wav')
+som_corrida = pygame.mixer.Sound('assets/sfx/Dirt Run 1.ogg')
 som_pulo.set_volume(0.4)
 som_colisao.set_volume(0.5)
 som_ataque.set_volume(0.5)
+som_corrida.set_volume(0.5)
 OST_MENU = 'assets/sound/1 Legend.wav'
 OST_NIVEL = 'assets/sound/Dark Dark Woods.wav'
 OST_COMBATE = 'assets/sound/6 Combat.wav'
@@ -125,22 +128,19 @@ def main():
         # Sistema de spawn dinâmico por ronda
         def gerar_inimigos(ronda):
             lista = []
-            posicoes = list(range(200, tela_largura-200, 120))
-            random.shuffle(posicoes)
-            usados = set()
-            for i in range(ronda + 2):
-                tipo = Enemy  # Sempre só o esqueleto
-                # Garante que não repete posição
-                for _ in range(10):
-                    x = posicoes[i % len(posicoes)] + random.randint(-30, 30)
-                    if x not in usados:
-                        usados.add(x)
-                        break
-                else:
-                    x = posicoes[i % len(posicoes)]
-                y = tela_altura - 64
-                side = None  # Não usar spawn_side para evitar bugs de spawn
-                lista.append(tipo(x, y, spawn_side=side))
+            # Sempre só um inimigo por rodada
+            tipo = Enemy
+            x = tela_largura // 2 + random.randint(-100, 100)
+            y = tela_altura - 64
+            side = None
+            inimigo = tipo(x, y, spawn_side=side)
+            # Escala atributos conforme a rodada
+            inimigo.vida = inimigo.vida_max = 3 + ronda  # Vida aumenta a cada rodada
+            inimigo.velocidade = 1 + 0.3 * ronda         # Velocidade aumenta
+            inimigo.forca = 1 + ronda // 2 if hasattr(inimigo, 'forca') else None  # Dano aumenta
+            inimigo.distancia_visao = 180 + 10 * ronda   # Visão aumenta
+            inimigo.distancia_ataque = 48 + 2 * ronda    # Alcance aumenta
+            lista.append(inimigo)
             return lista
         inimigos = gerar_inimigos(ronda)
         fonte = pygame.font.Font('assets/font/Beholden/Beholden-Medium.ttf', 36)
@@ -150,6 +150,7 @@ def main():
         ost_atual = OST_NIVEL
         camera_x = 0
         drop_itens = []
+        ultimo_estado_corrida = False
         # Aviso de início de ronda
         fala = f'Ronda {ronda} iniciada!'
         fala_timer = 90
@@ -242,7 +243,7 @@ def main():
                 # Usa hitbox do player para colisão
                 if inimigo.vivo and inimigo.ataque_acertou(player):
                     if not hasattr(inimigo, 'ja_acertou') or not inimigo.ja_acertou:
-                        player.levar_dano()
+                        inimigo.causar_dano(player)
                         som_colisao.play()
                         inimigo.ja_acertou = True
                 else:
@@ -252,7 +253,7 @@ def main():
                 if hasattr(inimigo, 'morrendo') and inimigo.morrendo:
                     continue
                 if inimigo.vivo and inimigo.rect.colliderect(player.get_hitbox()) and not player.invencivel:
-                    player.levar_dano()
+                    inimigo.causar_dano(player)
                     som_colisao.play()
             # Checa fim da ronda
             if all(not inimigo.vivo for inimigo in inimigos):
@@ -262,9 +263,11 @@ def main():
                 # Drops mais distantes do player
                 drop_offset = 180
                 for i in range(2):
-                    drop_itens.append({'tipo': 'vida', 'x': player.x + drop_offset + 60*i, 'y': player.y + 40, 'coletado': False})
+                    x_spawn = max(0, min(tela_largura - 32, player.x + drop_offset + 60*i))
+                    drop_itens.append({'tipo': 'vida', 'x': x_spawn, 'y': min(player.y + 40, tela_altura - 32), 'coletado': False})
                 for i in range(1):
-                    drop_itens.append({'tipo': 'power', 'x': player.x - drop_offset - 60*i, 'y': player.y + 40, 'coletado': False})
+                    x_spawn = max(0, min(tela_largura - 32, player.x - drop_offset - 60*i))
+                    drop_itens.append({'tipo': 'power', 'x': x_spawn, 'y': min(player.y + 40, tela_altura - 32), 'coletado': False})
                 tempo_espera = pygame.time.get_ticks()
                 # Espera o player coletar e se preparar
                 while any(not item['coletado'] for item in drop_itens) or pygame.time.get_ticks() - tempo_espera < 2000:
@@ -274,6 +277,13 @@ def main():
                         if evento.type == pygame.QUIT:
                             pygame.quit()
                             sys.exit()
+                        if evento.type == pygame.KEYDOWN:
+                            if evento.key == pygame.K_SPACE:
+                                player.pular()
+                                som_pulo.play()
+                            if evento.key == pygame.K_j or evento.key == pygame.K_z:
+                                player.atacar()
+                                som_ataque.play()
                     keys = pygame.key.get_pressed()
                     if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                         player.mover(-1)
@@ -297,7 +307,6 @@ def main():
                             barra_y = int(inimigo.y - 12)
                             pygame.draw.rect(tela, (60,60,60), (barra_x, barra_y, barra_w, barra_h))
                             pygame.draw.rect(tela, (200,0,0), (barra_x, barra_y, int(barra_w*vida_pct), barra_h))
-                    # Removido desenho dos hitboxes
                     for item in drop_itens:
                         if not item['coletado']:
                             cor = (0,200,0) if item['tipo']=='vida' else (0,0,200)
@@ -318,7 +327,6 @@ def main():
                 # Só passa de ronda se o player não morreu
                 if player.vida > 0:
                     ronda += 1
-                    # Aumenta vida máxima do player a cada rodada
                     player_stats['vida_max'] += 1
                     break
                 else:
