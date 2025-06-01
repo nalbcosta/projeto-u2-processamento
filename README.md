@@ -1,9 +1,24 @@
 # 🎮 Lone Samurai – Beat'em Up
 
+## 📑 Sumário
+- [Capa](#capa)
+- [Apresentação](#apresentação)
+- [Objetivos](#objetivos)
+- [Metodologia](#metodologia)
+- [Tecnologias Utilizadas](#tecnologias-utilizadas)
+- [Como Jogar](#como-jogar)
+- [Funcionalidades Implementadas](#funcionalidades-implementadas)
+- [Backlog / Linha do Tempo do Projeto](#backlog--linha-do-tempo-do-projeto)
+- [Contribuição](#contribuição)
+- [Licença](#licença)
+- [Créditos e Licenças de Assets](#créditos-e-licenças-de-assets)
+
+---
+
 ## 📄 Capa
 
 **Instituição:** UNIT - Universidade Tiradentes (Sergipe)  
-**Curso:** Ciência da Computação 
+**Curso:** Ciência da Computação  
 **Disciplina:** Processamento de Imagens  
 **Unidade:** Unidade II  
 **Aluno(s):**
@@ -12,7 +27,7 @@
 - Heitor Barboza
 - Marina Gabriela
 
-**Professora:** Msc. Layse Santos Souza
+**Professora:** Msc. Layse Santos Souza  
 **Data:** Em andamento (02/06/2025)
 
 ---
@@ -26,7 +41,7 @@ Este projeto é a solução proposta para a Atividade Avaliativa da Unidade 2 da
 ## 🎯 Objetivos
 
 - Desenvolver um jogo 2D com animações suaves, efeitos visuais e sonoros.
-- Ter pelo menos um personagem com caracteristicas e falas.
+- Ter pelo menos um personagem com características e falas.
 - Aplicar técnicas de segmentação de imagem usando OpenCV.
 - Garantir detecção de colisões com resposta visual e funcional.
 - Criar uma experiência de jogo fluida e visualmente agradável.
@@ -39,12 +54,12 @@ Este projeto é a solução proposta para a Atividade Avaliativa da Unidade 2 da
 
 Para atender aos critérios estabelecidos, o projeto seguiu as etapas abaixo:
 
-1. **Planejamento do jogo**: definição da mecânica, personagens e obstáculos.
-2. **Desenvolvimento com Pygame**: criação da base do jogo com movimentação e lógica.
-3. **Animações e efeitos**: sprites, sombras, brilhos e transições visuais.
-4. **Segmentação de imagem com OpenCV**: usada para aplicar efeitos localizados no personagem.
-5. **Implementação sonora**: inclusão de sons para saltos, colisões e eventos.
-6. **Testes e ajustes**: verificação da fluidez, colisões e integração dos elementos visuais.
+1. **Planejamento do jogo:** definição da mecânica, personagens e obstáculos.
+2. **Desenvolvimento com Pygame:** criação da base do jogo com movimentação e lógica.
+3. **Animações e efeitos:** sprites, sombras, brilhos e transições visuais.
+4. **Segmentação de imagem com OpenCV:** usada para aplicar efeitos localizados no personagem.
+5. **Implementação sonora:** inclusão de sons para saltos, colisões e eventos.
+6. **Testes e ajustes:** verificação da fluidez, colisões e integração dos elementos visuais.
 
 ---
 
@@ -110,5 +125,41 @@ Para atender aos critérios estabelecidos, o projeto seguiu as etapas abaixo:
 - [ ] Integração de segmentação de imagem com OpenCV (em andamento)
 - [ ] Filtros, brilhos e distorções avançadas (em andamento)
 - [ ] Ajustes finais, polimento e documentação
+
+---
+
+## 🤝 Contribuição
+
+Contribuições são bem-vindas! Para contribuir:
+1. Faça um fork do projeto.
+2. Crie uma branch para sua feature ou correção (`git checkout -b minha-feature`).
+3. Commit suas alterações (`git commit -m 'feat: minha nova feature'`).
+4. Faça push para a branch (`git push origin minha-feature`).
+5. Abra um Pull Request.
+
+---
+
+## 📄 Licença
+
+Este projeto está licenciado sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+---
+
+## 🎨 Créditos e Licenças de Assets
+
+Abaixo estão listados os assets utilizados no projeto, juntamente com seus respectivos autores e licenças. Por favor, preencha as informações conforme necessário:
+
+| Asset / Pasta                | Autor / Fonte                | Licença / Uso         |
+|------------------------------|------------------------------|----------------------|
+| assets/background/           | [Preencher]                  | [Preencher]          |
+| assets/effects/              | [Preencher]                  | [Preencher]          |
+| assets/font/Beholden/        | [Preencher]                  | [Preencher]          |
+| assets/icons/                | [Preencher]                  | [Preencher]          |
+| assets/sfx/                  | [Preencher]                  | [Preencher]          |
+| assets/sound/                | [Preencher]                  | [Preencher]          |
+| assets/sprite/               | [Preencher]                  | [Preencher]          |
+| ...                          | ...                          | ...                  |
+
+> **Nota:** Certifique-se de respeitar as licenças de cada asset utilizado. Caso utilize assets de terceiros, credite corretamente os autores e inclua links para as licenças quando possível.
 
 ---

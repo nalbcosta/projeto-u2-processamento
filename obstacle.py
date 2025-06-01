@@ -26,8 +26,8 @@ class Enemy:
             'idle':   ('assets/sprite/enemy/Skeleton_01_White_Idle.png', 8),
             'walk':   ('assets/sprite/enemy/Skeleton_01_White_Walk.png', 10),
             'die':    ('assets/sprite/enemy/Skeleton_01_White_Die.png', 13),
-            'hurt':   ('assets/sprite/enemy/Skeleton_01_White_Hurt.png', 5),
-            'attack': ('assets/sprite/enemy/Skeleton_01_White_Attack1.png', 10),
+            'hurt':   ('assets/sprite/enemy/Skeleton_01_White_Hurt.png', 4),
+            'attack': ('assets/sprite/enemy/Skeleton_01_White_Attack1.png', 9),
         }
         for anim, (path, nframes) in sprites_info.items():
             try:
@@ -45,7 +45,17 @@ class Enemy:
         self.velocidade = 1  # Velocidade de patrulha
         self.forca = 1       # Dano do inimigo
         self.patrulha_limite = (x-60, x+60)  # Limites de patrulha
-        self.anim_speed = 8  # Velocidade da animação
+        # Ajuste de velocidade das animações:
+        # - die: mais rápida (menor valor = mais rápido)
+        # - walk: mais fluida, similar ao player (player usa frame_dur=3)
+        self.anim_speed_dict = {
+            'idle': 8,
+            'walk': 3,   # Mais rápida, igual ao player
+            'attack': 4,
+            'hurt': 6,
+            'die': 3     # Mais rápida
+        }
+        self.anim_speed = self.anim_speed_dict.get('idle', 8)
         # --- IA e ataque ---
         self.estado = 'patrulha'  # patrulha, perseguindo, atacando, morto
         self.tempo_ataque = 0  # Cooldown do ataque
@@ -55,30 +65,39 @@ class Enemy:
         self.atacando = False  # Está atacando?
         self.ataque_frame_max = 5  # Frame do hit
         self.ataque_frame_atual = 0  # Frame atual do ataque
+        self.flash_timer = 0  # Efeito visual ao levar dano
+        self.hurt_timer = 0  # Timer para animação de hurt
 
     def set_animation(self, anim):
-        """Troca a animação atual do inimigo."""
+        """Troca a animação atual do inimigo e ajusta a velocidade."""
         if anim != self.current_animation and anim in self.animations:
             self.last_animation = self.current_animation
             self.current_animation = anim
             self.frame = 0
             self.frame_timer = 0
+            self.anim_speed = self.anim_speed_dict.get(anim, 8)
 
     def update(self, player=None):
         """Atualiza IA, física e animação do inimigo."""
         # Morte
         if hasattr(self, 'morrendo') and self.morrendo:
+            # Não altera posição durante animação de morte
             if self.morte_timer > 0:
                 self.morte_timer -= 1
+                self.set_animation('die')
+                self._anim_update()
             else:
                 self.morrendo = False
+                self.vivo = False
                 self.x = -9999
                 self.rect.x = self.x
-            self.set_animation('die')
-            self._anim_update()
             return
         if not self.vivo:
-            self.set_animation('die')
+            return
+        # Se está machucado, força animação de hurt
+        if self.hurt_timer > 0:
+            self.set_animation('hurt')
+            self.hurt_timer -= 1
             self._anim_update()
             return
         # IA: persegue ou patrulha
@@ -134,6 +153,9 @@ class Enemy:
         """Atualiza o frame da animação do inimigo."""
         frames = self.animations.get(self.current_animation, [])
         if frames:
+            # Protege para não acessar frame inválido
+            if self.frame >= len(frames):
+                self.frame = len(frames) - 1
             self.frame_timer += 1
             if self.frame_timer >= self.anim_speed:
                 self.frame_timer = 0
@@ -167,8 +189,14 @@ class Enemy:
             # Corrige flip: só inverte para a esquerda, nunca para a direita
             if self.direcao == -1:
                 sprite = pygame.transform.flip(sprite, True, False)
-            # Desenha o sprite na posição da hitbox para evitar "tremedeira"
-            tela.blit(sprite, (self.rect.x, self.rect.y))
+            # Efeito visual: flash vermelho ao levar dano
+            if self.flash_timer > 0:
+                flash = sprite.copy()
+                flash.fill((255,0,0,120), special_flags=pygame.BLEND_RGBA_ADD)
+                tela.blit(flash, (self.rect.x, self.rect.y))
+                self.flash_timer -= 1
+            else:
+                tela.blit(sprite, (self.rect.x, self.rect.y))
         else:
             pygame.draw.rect(tela, (255, 0, 0), self.rect)
 
@@ -184,16 +212,17 @@ class Enemy:
             pygame.draw.rect(tela, (255, 0, 0), self.rect.move(offset_x, 0))
 
     def levar_dano(self, dano=1):
-        """Aplica dano ao inimigo e troca animação para hurt ou die."""
+        """Aplica dano ao inimigo e troca animação para hurt ou die. Adiciona efeito visual."""
         self.vida -= dano
-        if self.vida <= 0:
+        self.flash_timer = 6  # Ativa flash vermelho
+        if self.vida <= 0 and not getattr(self, 'morrendo', False):
             self.vida = 0
             self.set_animation('die')
-            self.vivo = False
             self.morrendo = True
             self.morte_timer = len(self.animations['die']) * self.anim_speed
         else:
             self.set_animation('hurt')
+            self.hurt_timer = len(self.animations['hurt']) * self.anim_speed  # Dura a animação toda
 
     def causar_dano(self, player):
         """Aplica dano ao player usando a força do inimigo."""
@@ -242,6 +271,15 @@ class MushroomEnemy(Enemy):
         self.velocidade = 1.5
         self.distancia_visao = 140
         self.distancia_ataque = 40
+
+    def set_animation(self, anim):
+        """Troca a animação atual do inimigo e ajusta a velocidade."""
+        if anim != self.current_animation and anim in self.animations:
+            self.last_animation = self.current_animation
+            self.current_animation = anim
+            self.frame = 0
+            self.frame_timer = 0
+            self.anim_speed = self.anim_speed_dict.get(anim, 8)
 
 class FlyingEnemy(Enemy):
     def __init__(self, x, y, largura=64, altura=64, spawn_side=None):

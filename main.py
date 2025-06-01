@@ -8,6 +8,10 @@ import sys
 import random
 from player import Player
 from obstacle import Enemy
+from utils import carregar_icone, fade_in, fade_out, desenhar_texto_sombra
+from hud import draw_hud
+from audio import fadeout_and_play, fadeout_and_play_async, checar_troca_musica
+from menus import menu_inicial, menu_ingame, tela_comandos
 
 # =====================
 # CONFIGURAÇÕES INICIAIS
@@ -39,10 +43,12 @@ som_pouso = pygame.mixer.Sound('assets/sfx/Dirt Land.ogg')
 som_colisao = pygame.mixer.Sound('assets/sfx/Sword Impact Hit 1.wav')
 som_ataque = pygame.mixer.Sound('assets/sfx/Sword Attack 1.wav')
 som_corrida = pygame.mixer.Sound('assets/sfx/Dirt Run 1.ogg')
+som_defesa = pygame.mixer.Sound('assets/sfx/Sword Blocked 2.ogg')
 som_pulo.set_volume(0.4)
 som_colisao.set_volume(0.5)
 som_ataque.set_volume(0.5)
 som_corrida.set_volume(0.5)
+som_defesa.set_volume(0.5)
 OST_MENU = 'assets/sound/1 Legend.wav'
 OST_NIVEL = 'assets/sound/Dark Dark Woods.wav'
 OST_COMBATE = 'assets/sound/6 Combat.wav'
@@ -109,36 +115,7 @@ def checar_troca_musica():
             musica_pendente = None
 
 # ===== HUD E MENU VISUAIS =====
-def desenhar_texto_sombra(tela, texto, fonte, cor, sombra_cor, pos, deslocamento=(2,2)):
-    sombra = fonte.render(texto, True, sombra_cor)
-    tela.blit(sombra, (pos[0]+deslocamento[0], pos[1]+deslocamento[1]))
-    texto_img = fonte.render(texto, True, cor)
-    tela.blit(texto_img, pos)
-
-def fade_in(tela, cor=(0,0,0), duracao=30):
-    fade = pygame.Surface((tela.get_width(), tela.get_height()))
-    fade.fill(cor)
-    for alpha in range(255, -1, -int(255/duracao)):
-        fade.set_alpha(alpha)
-        tela.blit(fade, (0,0))
-        pygame.display.flip()
-        pygame.time.delay(8)
-
-def fade_out(tela, cor=(0,0,0), duracao=30):
-    fade = pygame.Surface((tela.get_width(), tela.get_height()))
-    fade.fill(cor)
-    for alpha in range(0, 256, int(255/duracao)):
-        fade.set_alpha(alpha)
-        tela.blit(fade, (0,0))
-        pygame.display.flip()
-        pygame.time.delay(8)
-
-def carregar_icone(nome):
-    try:
-        return pygame.image.load(f'assets/icons/{nome}').convert_alpha()
-    except:
-        return None
-
+# Remover as definições de desenhar_texto_sombra, fade_in, fade_out, carregar_icone daqui
 def draw_hud(tela, player, vida_img=None, arma_img=None):
     # Vida com sombra e efeito de piscar/tremer
     for i in range(player.vida_max):
@@ -169,10 +146,137 @@ def draw_hud(tela, player, vida_img=None, arma_img=None):
     desenhar_texto_sombra(tela, f'Rodada: {getattr(player, "ronda", "-")}', fonte, (255,255,255), (0,0,0), (tela.get_width()-180, tela.get_height()-50))
 
 # =====================
+# CUTSCENE INICIAL
+# =====================
+def cutscene_inicial(tela, tela_largura, tela_altura):
+    """Exibe a cutscene inicial com a história e objetivo do jogador, com visual aprimorado."""
+    fonte_titulo = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 60)
+    fonte_texto = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 32)
+    fonte_objetivo = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 36)
+    historia = [
+        "Em um Japão feudal devastado pela guerra,",
+        "um samurai sem mestre busca redenção.",
+        "",
+        "Seu objetivo:",
+        f"Sobreviver às ondas de inimigos e restaurar sua honra!",
+        f"Derrote todos os inimigos em cada rodada.",
+        f"Sobreviva até a rodada {MAX_RONDAS} para vencer!"
+    ]
+    rodando = True
+    timer = 0
+    alpha = 0
+    fadein_speed = 6
+    while rodando:
+        # Fundo gradiente escuro
+        for y in range(tela_altura):
+            cor = (10 + y//16, 10 + y//24, 30 + y//12)
+            pygame.draw.line(tela, cor, (0, y), (tela_largura, y))
+        # Caixa translúcida para o texto
+        caixa = pygame.Surface((tela_largura-120, 380), pygame.SRCALPHA)
+        caixa.fill((20, 20, 40, 180))
+        tela.blit(caixa, (60, 120))
+        # Título com sombra e brilho
+        titulo = fonte_titulo.render('Lost Samurai', True, (255, 255, 255))
+        sombra = fonte_titulo.render('Lost Samurai', True, (40, 40, 80))
+        tela.blit(sombra, (tela_largura//2 - titulo.get_width()//2 + 4, 74))
+        tela.blit(titulo, (tela_largura//2 - titulo.get_width()//2, 70))
+        # Fade-in do texto
+        if alpha < 255:
+            alpha = min(255, alpha + fadein_speed)
+        y = 150
+        for i, linha in enumerate(historia):
+            if i == 3:
+                # "Seu objetivo:" destacado
+                texto = fonte_objetivo.render(linha, True, (255, 255, 80))
+                texto.set_alpha(alpha)
+                tela.blit(texto, (tela_largura//2 - texto.get_width()//2, y))
+                y += 44
+            elif i > 3:
+                # Objetivo com brilho amarelo
+                texto = fonte_texto.render(linha, True, (255, 230, 120))
+                texto.set_alpha(alpha)
+                tela.blit(texto, (tela_largura//2 - texto.get_width()//2, y))
+                y += 38
+            else:
+                # História normal
+                texto = fonte_texto.render(linha, True, (220, 220, 220))
+                texto.set_alpha(alpha)
+                tela.blit(texto, (tela_largura//2 - texto.get_width()//2, y))
+                y += 38
+        # Caixa e instrução para continuar
+        instrucao_caixa = pygame.Surface((tela_largura, 50), pygame.SRCALPHA)
+        instrucao_caixa.fill((0,0,0,120))
+        tela.blit(instrucao_caixa, (0, tela_altura - 90))
+        instrucao = fonte_texto.render('Pressione ESPACO para continuar', True, (255, 255, 0))
+        instrucao.set_alpha(alpha)
+        tela.blit(instrucao, (tela_largura//2 - instrucao.get_width()//2, tela_altura - 80))
+        pygame.display.flip()
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if evento.type == pygame.KEYDOWN and alpha >= 200:
+                if evento.key == pygame.K_SPACE:
+                    rodando = False
+        timer += 1
+        pygame.time.delay(12)
+
+# =====================
+# LOOP PRINCIPAL DO JOGO
+# =====================
+
+MAX_RONDAS = 10  # Número máximo de rodadas
+
+def cutscene_inicial(tela, tela_largura, tela_altura):
+    """Exibe a cutscene inicial com a história e objetivo do jogador."""
+    fonte_titulo = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 48)
+    fonte_texto = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 32)
+    historia = [
+        "Em um Japão feudal devastado pela guerra,",
+        "um samurai sem mestre busca redenção.",
+        "\nSeu objetivo: sobreviver às ondas de inimigos",
+        "e restaurar sua honra perdida!",
+        "\nDerrote todos os inimigos em cada rodada.",
+        f"Sobreviva até a rodada {MAX_RONDAS} para vencer!"
+    ]
+    rodando = True
+    timer = 0
+    while rodando:
+        tela.fill((20, 10, 30))
+        titulo = fonte_titulo.render('Lost Samurai', True, (255, 255, 255))
+        tela.blit(titulo, (tela_largura//2 - titulo.get_width()//2, 60))
+        y = 180
+        for linha in historia:
+            texto = fonte_texto.render(linha, True, (220, 220, 220))
+            tela.blit(texto, (tela_largura//2 - texto.get_width()//2, y))
+            y += 50
+        instrucao = fonte_texto.render('Pressione ESPAÇO para continuar', True, (255, 255, 0))
+        tela.blit(instrucao, (tela_largura//2 - instrucao.get_width()//2, tela_altura - 80))
+        pygame.display.flip()
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_SPACE:
+                    rodando = False
+        timer += 1
+
+# =====================
 # LOOP PRINCIPAL DO JOGO
 # =====================
 def main():
-    fadeout_and_play_async(OST_NIVEL)
+    while True:
+        # Exibe o menu inicial e aguarda ação do jogador
+        acao = menu_inicial(tela, tela_largura, tela_altura, OST_MENU, background_layers, menu_opcoes, tela_comandos)
+        if acao == 'iniciar' or acao is None:
+            # Exibe a cutscene apenas ao iniciar o jogo
+            cutscene_inicial(tela, tela_largura, tela_altura)
+            break
+        elif acao == 'sair':
+            pygame.quit()
+            sys.exit()
+    fadeout_and_play(OST_COMBATE)  # Troca imediatamente para música de combate ao entrar no jogo
     ronda = 1
     player_stats = {'forca': 1, 'agilidade': 1, 'defesa': 1, 'vida_max': 3}
     fala = ''
@@ -183,6 +287,7 @@ def main():
             reset_ronda = False
         player = Player(80, tela_altura - 50)
         player.vida = player_stats['vida_max']
+        player.ronda = ronda  # Atualiza o atributo ronda do player para o HUD
         inimigos = []
         popups = []  # lista de popups de dano
         # Sistema de spawn dinâmico por ronda
@@ -207,7 +312,7 @@ def main():
         rodando = True
         game_over = False
         combate_ativo = False
-        ost_atual = OST_NIVEL
+        ost_atual = OST_COMBATE  # Música padrão é sempre a de combate
         camera_x = 0
         drop_itens = []
         ultimo_estado_corrida = False
@@ -250,34 +355,34 @@ def main():
             camera_x = max(0, min(camera_x, 1000))  # 1000: limite do mapa, ajuste conforme necessário
             # Combate e música
             combate_ativo = any(inimigo.vivo and abs((inimigo.x + inimigo.largura//2) - (player.x + player.largura//2)) < 180 for inimigo in inimigos)
-            if combate_ativo and ost_atual != OST_COMBATE:
-                fadeout_and_play_async(OST_COMBATE)
-                ost_atual = OST_COMBATE
-            elif not combate_ativo and ost_atual != OST_NIVEL:
-                fadeout_and_play_async(OST_NIVEL)
-                ost_atual = OST_NIVEL
             for evento in pygame.event.get():
                 if evento.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 if evento.type == pygame.KEYDOWN:
                     if evento.key == pygame.K_ESCAPE:
-                        acao = menu_ingame()
+                        acao = menu_ingame(tela, tela_largura, tela_altura, OST_MENU_INGAME, menu_opcoes, tela_comandos)
                         if acao == 'menu':
-                            return 'menu'
+                            menu_inicial(tela, tela_largura, tela_altura, OST_MENU, background_layers, menu_opcoes, tela_comandos)
+                            return  # Sai do main atual, voltando para o menu inicial
                     if evento.key == pygame.K_SPACE:
                         player.pular()
                         som_pulo.play()
                     if evento.key == pygame.K_j or evento.key == pygame.K_z:
                         player.atacar()
                         som_ataque.play()
+                    if evento.key == pygame.K_k or evento.key == pygame.K_DOWN:
+                        player.defender(True)
+                if evento.type == pygame.KEYUP:
+                    if evento.key == pygame.K_k or evento.key == pygame.K_DOWN:
+                        player.defender(False)
             keys = pygame.key.get_pressed()
             if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                 player.mover(-1)
             elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 player.mover(1)
             else:
-                if not player.atacando and not player.pulando:
+                if not player.atacando and not player.pulando and not player.defendendo:
                     player.acao = 'idle'
             player.update()
             for inimigo in inimigos:
@@ -290,15 +395,19 @@ def main():
                         continue  # Não interage com inimigos morrendo
                     # Usa hitbox do inimigo e do player para colisão
                     if inimigo.vivo and ataque_rect.colliderect(inimigo.rect):
-                        if not hasattr(player, 'ja_acertou') or not player.ja_acertou:
+                        if not hasattr(inimigo, 'ja_acertou_player') or not inimigo.ja_acertou_player:
                             dano = player.forca if hasattr(player, 'forca') else 1
                             inimigo.levar_dano(dano)
                             som_colisao.play()
                             popups.append({'dano': dano, 'x': inimigo.x + inimigo.largura//2, 'y': inimigo.y - 20, 'timer': 30})
-                            player.ja_acertou = True
-                        break
-                else:
-                    player.ja_acertou = False
+                            inimigo.ja_acertou_player = True
+                # Reset flag quando ataque termina
+                if not player.atacando:
+                    for inimigo in inimigos:
+                        inimigo.ja_acertou_player = False
+            else:
+                for inimigo in inimigos:
+                    inimigo.ja_acertou_player = False
             # Ataque do inimigo
             for inimigo in inimigos:
                 if hasattr(inimigo, 'morrendo') and inimigo.morrendo:
@@ -389,21 +498,39 @@ def main():
                     pygame.display.flip()
                 # Só passa de ronda se o player não morreu
                 if player.vida > 0:
+                    if ronda >= MAX_RONDAS:
+                        # Vitória!
+                        fala = f'Parabéns! Você sobreviveu até a rodada {MAX_RONDAS}!'
+                        fala_timer = 180
+                        while fala_timer > 0:
+                            relogio.tick(fps)
+                            for evento in pygame.event.get():
+                                if evento.type == pygame.QUIT:
+                                    pygame.quit()
+                                    sys.exit()
+                            for idx, layer in enumerate(background_layers):
+                                tela.blit(pygame.transform.scale(layer, (tela_largura, tela_altura)), (0, 0))
+                            texto_fala = fonte.render(fala, True, (30,200,30))
+                            tela.blit(texto_fala, (tela_largura//2 - texto_fala.get_width()//2, 60))
+                            pygame.display.flip()
+                            fala_timer -= 1
+                        rodando = False
+                        game_over = True  # Exibe tela de Game Over (pode customizar para tela de vitória)
+                        break
                     ronda += 1
                     player_stats['vida_max'] += 1
                     break
                 else:
                     rodando = False
-                    reset_ronda = True
+                    game_over = True  # Marca para exibir Game Over
             if player.vida <= 0:
                 rodando = False
-                reset_ronda = True
+                game_over = True  # Marca para exibir Game Over
             # Remover parallax: desenha apenas o fundo fixo
             # Removido tela.fill(BRANCO) para evitar fundo branco
             for idx, layer in enumerate(background_layers):
                 tela.blit(pygame.transform.scale(layer, (tela_largura, tela_altura)), (0, 0))
             # Desenha player e inimigos SEM offset de câmera
-            player.draw(tela)
             for inimigo in inimigos:
                 inimigo.draw(tela)
                 # Barra de vida estilizada do inimigo
@@ -413,13 +540,36 @@ def main():
                     vida_pct = max(0, inimigo.vida / inimigo.vida_max)
                     barra_x = int(inimigo.x + inimigo.largura//2 - barra_w//2)
                     barra_y = int(inimigo.y - 24)
-                    # Fundo barra
                     pygame.draw.rect(tela, (40,40,40), (barra_x, barra_y, barra_w, barra_h), border_radius=8)
-                    # Vida
                     pygame.draw.rect(tela, (220,40,40), (barra_x+2, barra_y+2, int((barra_w-4)*vida_pct), barra_h-4), border_radius=6)
-                    # Brilho
                     if vida_pct > 0:
                         pygame.draw.rect(tela, (255,180,180), (barra_x+2, barra_y+2, int((barra_w-4)*vida_pct), 4), border_radius=3)
+            # EFEITO VISUAL DE DEFESA
+            if hasattr(player, 'defendendo') and player.defendendo:
+                player.draw(tela)
+                s = pygame.Surface((player.largura, player.altura), pygame.SRCALPHA)
+                s.fill((60, 180, 255, 90))
+                tela.blit(s, (player.x, player.y))
+                if hasattr(player, 'defesa_cooldown') and player.defesa_cooldown > 0:
+                    cooldown_pct = player.defesa_cooldown / getattr(player, 'defesa_cooldown_max', 60)
+                    pygame.draw.arc(tela, (60,180,255), (player.x+player.largura//2-18, player.y-28, 36, 36), 0, 2*3.14*cooldown_pct, 6)
+            else:
+                player.draw(tela)
+                if hasattr(player, 'defesa_cooldown') and player.defesa_cooldown > 0:
+                    cooldown_pct = player.defesa_cooldown / getattr(player, 'defesa_cooldown_max', 60)
+                    pygame.draw.rect(tela, (60,180,255), (player.x+player.largura//2-20, player.y-18, int(40*cooldown_pct), 6), border_radius=3)
+            # Indicativo de dano: popups animados
+            for popup in popups[:]:
+                alpha = int(255 * (popup['timer']/30))
+                fonte_popup = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 28)
+                texto = fonte_popup.render(f"-{popup['dano']}", True, (255,80,80))
+                texto.set_alpha(alpha)
+                x = popup['x']
+                y = popup['y'] - (30 - popup['timer'])
+                tela.blit(texto, (x - texto.get_width()//2, y))
+                popup['timer'] -= 1
+                if popup['timer'] <= 0:
+                    popups.remove(popup)
             # HUD estilizado
             draw_hud(tela, player, vida_img, arma_img)
             # Exibe fala
@@ -427,166 +577,85 @@ def main():
                 texto_fala = fonte.render(fala, True, (30,30,30))
                 tela.blit(texto_fala, (tela_largura//2 - texto_fala.get_width()//2, 60))
                 fala_timer -= 1
-            # Substitui o texto por ícones de teclado na UI, com melhor espaçamento e alinhamento
-            icon_size = 48
-            icon_y = 20
-            fonte_bold = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 32)
-            try:
-                icon_space = pygame.image.load('assets/icons/keyboard/space.png').convert_alpha()
-                icon_j = pygame.image.load('assets/icons/keyboard/J.png').convert_alpha()
-                icon_a = pygame.image.load('assets/icons/keyboard/A.png').convert_alpha()
-                icon_d = pygame.image.load('assets/icons/keyboard/D button.png').convert_alpha()
-                icon_wide = int(icon_size * 1.5)
-                x_space = 30
-                x_j = x_space + icon_size*2 + 60
-                x_a = x_j + icon_wide + 60
-                x_d = x_a + icon_wide + 30
-                tela.blit(pygame.transform.scale(icon_space, (icon_size*2, icon_size)), (x_space, icon_y))
-                tela.blit(pygame.transform.scale(icon_j, (icon_wide, icon_size)), (x_j, icon_y))
-                tela.blit(pygame.transform.scale(icon_a, (icon_wide, icon_size)), (x_a, icon_y))
-                tela.blit(pygame.transform.scale(icon_d, (icon_wide, icon_size)), (x_d, icon_y))
-                texto_ui = fonte_bold.render("Pular", True, (30,30,30))
-                texto_rect = texto_ui.get_rect(center=(x_space + icon_size, icon_y + icon_size + 18))
-                tela.blit(texto_ui, texto_rect)
-                texto_ui = fonte_bold.render("Atacar", True, (30,30,30))
-                texto_rect = texto_ui.get_rect(center=(x_j + icon_wide//2, icon_y + icon_size + 18))
-                tela.blit(texto_ui, texto_rect)
-                texto_ui = fonte_bold.render("Andar", True, (30,30,30))
-                texto_rect = texto_ui.get_rect(center=(x_a + icon_wide//2, icon_y + icon_size + 18))
-                tela.blit(texto_ui, texto_rect)
-            except Exception as e:
-                print(f"[UI] Erro ao carregar ícones dos botões: {e}")
+            # Remove exibição dos comandos/ícones de teclado da tela principal
             # Exibir FPS atual no canto superior direito
             fonte_fps = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 24)
             fps_atual = int(relogio.get_fps())
             texto_fps = fonte_fps.render(f"FPS: {fps_atual}", True, (255,255,0))
             tela.blit(texto_fps, (tela_largura - texto_fps.get_width() - 20, 20))
             pygame.display.flip()
-        # Tela de Game Over
-        while not game_over:
-            tela.fill(BRANCO)
-            texto_gameover = fonte.render("Game Over!", True, (200, 0, 0))
-            texto_restart = fonte.render("Press SPACE to try again", True, (0, 0, 0))
-            tela.blit(texto_gameover, (tela_largura//2 - texto_gameover.get_width()//2, tela_altura//2 - 60))
-            tela.blit(texto_restart, (tela_largura//2 - texto_restart.get_width()//2, tela_altura//2 + 40))
-            pygame.display.flip()
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key == pygame.K_SPACE:
-                        game_over = True
+        # Exibe tela de Game Over apenas se o player perdeu
+        if game_over:
+            if ronda > MAX_RONDAS:
+                # Tela de vitória
+                while True:
+                    tela.fill(BRANCO)
+                    texto_vitoria = fonte.render("VOCÊ VENCEU!", True, (0, 180, 0))
+                    texto_restart = fonte.render("Pressione ESPAÇO para jogar novamente", True, (0, 0, 0))
+                    tela.blit(texto_vitoria, (tela_largura//2 - texto_vitoria.get_width()//2, tela_altura//2 - 60))
+                    tela.blit(texto_restart, (tela_largura//2 - texto_restart.get_width()//2, tela_altura//2 + 40))
+                    pygame.display.flip()
+                    for evento in pygame.event.get():
+                        if evento.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                        if evento.type == pygame.KEYDOWN:
+                            if evento.key == pygame.K_SPACE:
+                                game_over = False
+                                reset_ronda = True
+                                break
+                if not game_over:
+                    break
+            else:
+                while True:
+                    tela.fill(BRANCO)
+                    texto_gameover = fonte.render("Game Over!", True, (200, 0, 0))
+                    texto_restart = fonte.render("Press SPACE to try again", True, (0, 0, 0))
+                    tela.blit(texto_gameover, (tela_largura//2 - texto_gameover.get_width()//2, tela_altura//2 - 60))
+                    tela.blit(texto_restart, (tela_largura//2 - texto_restart.get_width()//2, tela_altura//2 + 40))
+                    pygame.display.flip()
+                    for evento in pygame.event.get():
+                        if evento.type == pygame.QUIT:
+                            pygame.quit()
+                            sys.exit()
+                        if evento.type == pygame.KEYDOWN:
+                            if evento.key == pygame.K_SPACE:
+                                game_over = False
+                                reset_ronda = True
+                                break
+                if not game_over:
+                    break
 
-def menu_inicial():
-    fade_in(tela, (0,0,0), duracao=24)
-    fadeout_and_play_async(OST_MENU)
-    menu_ativo = True
-    fonte_menu = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 64)
-    fonte_opcao = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 36)
-    opcoes = ['Iniciar', 'Opcoes', 'Sair']
-    icones = ['HUD/sword.png', 'HUD/gear.png', 'HUD/exit.png']
-    selecionado = 0
-    som_nav = pygame.mixer.Sound('assets/sfx/Movimento.ogg')
-    som_nav.set_volume(0.5)
-    cursor_img = carregar_icone('HUD/cursor.png')
-    parallax_offset = 0
-    while menu_ativo:
-        checar_troca_musica()
-        # Fundo animado com parallax
-        parallax_offset = (parallax_offset + 0.5) % tela_largura
-        for idx, layer in enumerate(background_layers):
-            speed = 0.2 + idx*0.05
-            x = int(-parallax_offset*speed) % tela_largura
-            tela.blit(pygame.transform.scale(layer, (tela_largura, tela_altura)), (x, 0))
-            if x > 0:
-                tela.blit(pygame.transform.scale(layer, (tela_largura, tela_altura)), (x-tela_largura, 0))
-        # Título com sombra
-        desenhar_texto_sombra(tela, 'Lost Samurai', fonte_menu, (255,255,255), (0,0,0), (tela_largura//2-220, 60))
-        # Opções
-        for i, opcao in enumerate(opcoes):
-            y = 220 + i*80
-            cor = (255,255,0) if i==selecionado else (255,255,255)
-            sombra = (60,60,0) if i==selecionado else (0,0,0)
-            # Retângulo destacado
-            if i==selecionado:
-                pygame.draw.rect(tela, (255,255,180), (tela_largura//2-180, y-10, 360, 60), border_radius=18)
-                pygame.draw.rect(tela, (200,200,80), (tela_largura//2-180, y-10, 360, 60), 4, border_radius=18)
-            # Ícone
-            icone = carregar_icone(icones[i])
-            if icone:
-                tela.blit(pygame.transform.scale(icone, (48,48)), (tela_largura//2-160, y))
-            desenhar_texto_sombra(tela, opcao, fonte_opcao, cor, sombra, (tela_largura//2-90, y+8))
-        # Cursor customizado animado
-        if cursor_img:
-            tela.blit(cursor_img, (tela_largura//2-200, 220 + selecionado*80 + 8))
-        pygame.display.flip()
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                fade_out(tela, (0,0,0), duracao=18)
-                pygame.quit()
-                sys.exit()
-            if evento.type == pygame.KEYDOWN:
-                if evento.key in [pygame.K_UP, pygame.K_w]:
-                    selecionado = (selecionado - 1) % len(opcoes)
-                    som_nav.play()
-                if evento.key in [pygame.K_DOWN, pygame.K_s]:
-                    selecionado = (selecionado + 1) % len(opcoes)
-                    som_nav.play()
-                if evento.key == pygame.K_RETURN or evento.key == pygame.K_SPACE:
-                    fade_out(tela, (0,0,0), duracao=18)
-                    if opcoes[selecionado] == 'Iniciar':
-                        menu_ativo = False
-                    elif opcoes[selecionado] == 'Opcoes':
-                        menu_opcoes()
-                        fade_in(tela, (0,0,0), duracao=18)
-                    elif opcoes[selecionado] == 'Sair':
-                        pygame.quit()
-                        sys.exit()
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        mouse_clicked = False
-        op_rects = []
-        for i, opcao in enumerate(opcoes):
-            y = 220 + i*80
-            rect = pygame.Rect(tela_largura//2-180, y-10, 360, 60)
-            op_rects.append(rect)
-        for evento in pygame.event.get():
-            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                mouse_clicked = True
-        for i, rect in enumerate(op_rects):
-            if rect.collidepoint(mouse_x, mouse_y):
-                if i != selecionado:
-                    selecionado = i
-                    som_nav.play()
-                if mouse_clicked:
-                    fade_out(tela, (0,0,0), duracao=18)
-                    if opcoes[i] == 'Iniciar':
-                        menu_ativo = False
-                    elif opcoes[i] == 'Opcoes':
-                        menu_opcoes()
-                        fade_in(tela, (0,0,0), duracao=18)
-                    elif opcoes[i] == 'Sair':
-                        pygame.quit()
-                        sys.exit()
-
-def menu_ingame():
-    fadeout_and_play_async(OST_MENU_INGAME)
+def menu_ingame(tela, tela_largura, tela_altura, musica_fadeout, menu_opcoes, tela_comandos):
+    from audio import fadeout_and_play_async
+    fadeout_and_play_async(musica_fadeout)
     menu_ativo = True
     fonte_menu = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 48)
     fonte_opcao = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 32)
-    opcoes = ['Voltar ao Jogo', 'Voltar ao Menu Principal', 'Opcoes', 'Sair do Jogo']
+    opcoes = ['Voltar ao Jogo', 'Voltar ao Menu Principal', 'Opcoes', 'Comandos', 'Sair do Jogo']
     selecionado = 0
     while menu_ativo:
         checar_troca_musica()
         tela.fill((30, 10, 30))
         titulo = fonte_menu.render('Menu', True, (255, 255, 255))
         tela.blit(titulo, (tela_largura//2 - titulo.get_width()//2, 60))
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_clicked = False
+        op_rects = []
         for i, opcao in enumerate(opcoes):
             cor = (255, 255, 0) if i == selecionado else (255, 255, 255)
+            sombra = (60, 60, 0) if i == selecionado else (0, 0, 0)
+            y = 180 + i*60
+            if i == selecionado:
+                pygame.draw.rect(tela, (255,255,180), (tela_largura//2-180, y-10, 360, 54), border_radius=16)
+                pygame.draw.rect(tela, (200,200,80), (tela_largura//2-180, y-10, 360, 54), 4, border_radius=16)
+            sombra_surf = fonte_opcao.render(opcao, True, sombra)
+            tela.blit(sombra_surf, (tela_largura//2 - fonte_opcao.size(opcao)[0]//2 + 2, y + 2))
             texto = fonte_opcao.render(opcao, True, cor)
-            tela.blit(texto, (tela_largura//2 - texto.get_width()//2, 180 + i*60))
+            tela.blit(texto, (tela_largura//2 - texto.get_width()//2, y))
+            rect = pygame.Rect(tela_largura//2-180, y-10, 360, 54)
+            op_rects.append(rect)
         pygame.display.flip()
-        op_rects = []  # Garante que op_rects sempre existe
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:
                 pygame.quit()
@@ -604,59 +673,36 @@ def menu_ingame():
                     elif opcoes[selecionado] == 'Voltar ao Menu Principal':
                         return 'menu'
                     elif opcoes[selecionado] == 'Opcoes':
-                        menu_opcoes()
+                        menu_opcoes(tela, tela_largura, tela_altura)
+                    elif opcoes[selecionado] == 'Comandos':
+                        tela_comandos(tela, tela_largura, tela_altura)
                     elif opcoes[selecionado] == 'Sair do Jogo':
                         pygame.quit()
                         sys.exit()
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            mouse_clicked = False
-            op_rects = []
-            for i, opcao in enumerate(opcoes):
-                cor = (255, 255, 0) if i == selecionado else (255, 255, 255)
-                texto = fonte_opcao.render(opcao, True, cor)
-                rect = texto.get_rect(center=(tela_largura//2, 180 + i*60))
-                tela.blit(texto, rect)
-                op_rects.append(rect)
-            pygame.display.flip()
-            for evento in pygame.event.get():
-                if evento.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if evento.type == pygame.KEYDOWN:
-                    if evento.key in [pygame.K_UP, pygame.K_w]:
-                        selecionado = (selecionado - 1) % len(opcoes)
-                    if evento.key in [pygame.K_DOWN, pygame.K_s]:
-                        selecionado = (selecionado + 1) % len(opcoes)
-                    if evento.key == pygame.K_ESCAPE:
-                        return 'voltar'
-                    if evento.key == pygame.K_RETURN or evento.key == pygame.K_SPACE:
-                        if opcoes[selecionado] == 'Voltar ao Jogo':
-                            return 'voltar'
-                        elif opcoes[selecionado] == 'Voltar ao Menu Principal':
-                            return 'menu'
-                        elif opcoes[selecionado] == 'Opcoes':
-                            menu_opcoes()
-                        elif opcoes[selecionado] == 'Sair do Jogo':
-                            pygame.quit()
-                            sys.exit()
-                if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
-                    mouse_clicked = True
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                mouse_clicked = True
         for i, rect in enumerate(op_rects):
             if rect.collidepoint(mouse_x, mouse_y):
-                selecionado = i
+                if i != selecionado:
+                    selecionado = i
                 if mouse_clicked:
                     if opcoes[i] == 'Voltar ao Jogo':
                         return 'voltar'
                     elif opcoes[i] == 'Voltar ao Menu Principal':
                         return 'menu'
                     elif opcoes[i] == 'Opcoes':
-                        menu_opcoes()
+                        menu_opcoes(tela, tela_largura, tela_altura)
+                    elif opcoes[i] == 'Comandos':
+                        tela_comandos(tela, tela_largura, tela_altura)
                     elif opcoes[i] == 'Sair do Jogo':
                         pygame.quit()
                         sys.exit()
-                        
-def menu_opcoes():
+
+def menu_opcoes(tela_arg, tela_largura_arg, tela_altura_arg):
     global tela_largura, tela_altura, tela, fps
+    tela_largura = tela_largura_arg
+    tela_altura = tela_altura_arg
+    tela = tela_arg
     fonte_menu = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 48)
     fonte_opcao = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 32)
     resolucoes = [(320, 180), (640, 360), (800, 600)]
@@ -667,9 +713,6 @@ def menu_opcoes():
     volume_sfx = som_pulo.get_volume()
     resolucao_idx = next((i for i, r in enumerate(resolucoes) if r == (tela_largura, tela_altura)), 0)
     fps_idx = fps_opcoes.index(fps) if fps in fps_opcoes else 1
-    # Carregar imagens do HUD (vida, arma) uma vez
-    vida_img = carregar_icone('HUD/heart.png')
-    arma_img = carregar_icone('HUD/sword.png')
     while True:
         checar_troca_musica()
         tela.fill((30, 10, 30))
@@ -680,19 +723,27 @@ def menu_opcoes():
         op_rects = []
         for i, opcao in enumerate(opcoes):
             cor = (255, 255, 0) if i == selecionado else (255, 255, 255)
+            sombra = (60, 60, 0) if i == selecionado else (0, 0, 0)
+            y = 180 + i*60
             if opcao == 'Volume Música':
-                texto = fonte_opcao.render(f'{opcao}: {int(volume_musica*100)}%', True, cor)
+                texto_str = f'{opcao}: {int(volume_musica*100)}%'
             elif opcao == 'Volume SFX':
-                texto = fonte_opcao.render(f'{opcao}: {int(volume_sfx*100)}%', True, cor)
+                texto_str = f'{opcao}: {int(volume_sfx*100)}%'
             elif opcao == 'Resolução':
                 res = f'{resolucoes[resolucao_idx][0]}x{resolucoes[resolucao_idx][1]}'
-                texto = fonte_opcao.render(f'{opcao}: {res}', True, cor)
+                texto_str = f'{opcao}: {res}'
             elif opcao == 'FPS':
-                texto = fonte_opcao.render(f'{opcao}: {fps_opcoes[fps_idx]}', True, cor)
+                texto_str = f'{opcao}: {fps_opcoes[fps_idx]}'
             else:
-                texto = fonte_opcao.render(opcao, True, cor)
-            rect = texto.get_rect(center=(tela_largura//2, 180 + i*60 + 24))
-            tela.blit(texto, rect)
+                texto_str = opcao
+            texto = fonte_opcao.render(texto_str, True, cor)
+            sombra_surf = fonte_opcao.render(texto_str, True, sombra)
+            if i == selecionado:
+                pygame.draw.rect(tela, (255,255,180), (tela_largura//2-180, y-10, 360, 54), border_radius=16)
+                pygame.draw.rect(tela, (200,200,80), (tela_largura//2-180, y-10, 360, 54), 4, border_radius=16)
+            tela.blit(sombra_surf, (tela_largura//2 - texto.get_width()//2 + 2, y + 2))
+            tela.blit(texto, (tela_largura//2 - texto.get_width()//2, y))
+            rect = pygame.Rect(tela_largura//2-180, y-10, 360, 54)
             op_rects.append(rect)
         pygame.display.flip()
         for evento in pygame.event.get():
@@ -742,10 +793,10 @@ def menu_opcoes():
                     return
             if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
                 mouse_clicked = True
-        # Mouse hover/click
         for i, rect in enumerate(op_rects):
             if rect.collidepoint(mouse_x, mouse_y):
-                selecionado = i
+                if i != selecionado:
+                    selecionado = i
                 if mouse_clicked:
                     if opcoes[i] == 'Voltar':
                         return
@@ -765,9 +816,58 @@ def menu_opcoes():
                         fps_idx = (fps_idx + 1) % len(fps_opcoes)
                         fps = fps_opcoes[fps_idx]
 
-# =====================
-# EXECUÇÃO PRINCIPAL
-# =====================
+def tela_comandos(tela, tela_largura, tela_altura):
+    fonte = pygame.font.Font('assets/font/Beholden/Beholden-Bold.ttf', 40)
+    fonte_cmd = pygame.font.Font('assets/font/Beholden/Beholden-Regular.ttf', 28)
+    comandos = [
+        ("Pular", "Espaco"),
+        ("Atacar", "J ou Z"),
+        ("Defender", "K ou Seta Baixo"),
+        ("Mover", "A/D ou Setas"),
+        ("Menu/Pause", "ESC")
+    ]
+    rodando = True
+    selecionado = 0
+    while rodando:
+        tela.fill((30, 10, 30))
+        titulo = fonte.render('Comandos', True, (255, 255, 255))
+        tela.blit(titulo, (tela_largura//2 - titulo.get_width()//2, 60))
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_clicked = False
+        op_rects = []
+        for i, (acao, tecla) in enumerate(comandos):
+            cor = (255,255,0) if i==selecionado else (255,255,200)
+            sombra = (60,60,0) if i==selecionado else (0,0,0)
+            y = 160 + i*50
+            if i==selecionado:
+                pygame.draw.rect(tela, (255,255,180), (tela_largura//2-180, y-10, 360, 44), border_radius=14)
+                pygame.draw.rect(tela, (200,200,80), (tela_largura//2-180, y-10, 360, 44), 3, border_radius=14)
+            sombra_surf = fonte_cmd.render(f'{acao}: {tecla}', True, sombra)
+            tela.blit(sombra_surf, (tela_largura//2 - fonte_cmd.size(f'{acao}: {tecla}')[0]//2 + 2, y + 2))
+            texto = fonte_cmd.render(f'{acao}: {tecla}', True, cor)
+            tela.blit(texto, (tela_largura//2 - texto.get_width()//2, y))
+            rect = pygame.Rect(tela_largura//2-180, y-10, 360, 44)
+            op_rects.append(rect)
+        texto_voltar = fonte_cmd.render('Pressione ESC para voltar', True, (180,180,180))
+        tela.blit(texto_voltar, (tela_largura//2 - texto_voltar.get_width()//2, tela_altura-80))
+        pygame.display.flip()
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if evento.type == pygame.KEYDOWN:
+                if evento.key in [pygame.K_UP, pygame.K_w]:
+                    selecionado = (selecionado - 1) % len(comandos)
+                if evento.key in [pygame.K_DOWN, pygame.K_s]:
+                    selecionado = (selecionado + 1) % len(comandos)
+                if evento.key == pygame.K_ESCAPE:
+                    rodando = False
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                mouse_clicked = True
+        for i, rect in enumerate(op_rects):
+            if rect.collidepoint(mouse_x, mouse_y):
+                if i != selecionado:
+                    selecionado = i
+
 if __name__ == "__main__":
-    menu_inicial()
     main()

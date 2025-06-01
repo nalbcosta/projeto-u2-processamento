@@ -63,6 +63,11 @@ class Player:
         self.levou_dano = False  # Levou dano recentemente
         self.levou_dano_timer = 0
 
+        # --- DEFESA ---
+        self.defendendo = False  # Está defendendo?
+        self.defesa_cooldown = 0  # Cooldown da defesa
+        self.defesa_cooldown_max = 30  # Frames de cooldown após defender
+
         # --- LIMPEZA DE ATRIBUTOS OBSOLETOS ---
         # Nenhum atributo obsoleto detectado para remoção
 
@@ -83,28 +88,50 @@ class Player:
         self.frame = 0
 
     def atacar(self):
-        """Inicia o ataque se não estiver atacando."""
-        if not self.atacando:
+        """Inicia o ataque se não estiver atacando e não estiver pulando."""
+        if not self.atacando and not self.pulando:
             self.atacando = True
-            self.ataque_timer = self.ataque_duracao
+            self.ataque_timer = 18  # Ataque mais rápido e responsivo
             self.acao = 'attack'
             self.frame = 0
+            self.ja_acertou = False  # Permite acertar só uma vez por ataque
+
+    def defender(self, ativar=True):
+        """Ativa ou desativa defesa se não estiver em cooldown."""
+        if ativar and not self.defendendo and self.defesa_cooldown == 0 and not self.atacando:
+            self.defendendo = True
+            self.acao = 'idle'  # Pode trocar para 'defend' se houver animação
+            self.frame = 0
+        elif not ativar and self.defendendo:
+            self.defendendo = False
+            self.defesa_cooldown = self.defesa_cooldown_max
 
     def get_ataque_rect(self):
-        """Retorna o retângulo de ataque na frente do player."""
+        """Retorna o retângulo de ataque na frente do player, alinhado ao centro do inimigo."""
+        altura_hitbox = int(self.altura * 0.7)
+        y_offset = (self.altura - altura_hitbox) // 2
         if self.direcao == 1:
-            return pygame.Rect(self.x + self.largura - 10, self.y + 10, 60, self.altura - 20)
+            return pygame.Rect(self.x + self.largura - 10, self.y + y_offset, 60, altura_hitbox)
         else:
-            return pygame.Rect(self.x - 50, self.y + 10, 60, self.altura - 20)
+            return pygame.Rect(self.x - 50, self.y + y_offset, 60, altura_hitbox)
 
     def levar_dano(self, dano=1):
-        """Reduz vida e ativa invencibilidade temporária."""
+        """Reduz vida e ativa invencibilidade temporária. Reduz dano se defendendo."""
         if not self.invencivel:
-            self.vida -= dano
-            self.invencivel = True
-            self.invencivel_timer = self.invencivel_cooldown
-            self.levou_dano = True
-            self.levou_dano_timer = 10  # Duração do efeito de levou_dano
+            if self.defendendo:
+                dano = max(0, dano - 1)  # Reduz dano em 1 ao defender
+                if dano == 0:
+                    try:
+                        from main import som_defesa
+                        som_defesa.play()
+                    except Exception:
+                        pass
+            if dano > 0:
+                self.vida -= dano
+                self.invencivel = True
+                self.invencivel_timer = self.invencivel_cooldown
+                self.levou_dano = True
+                self.levou_dano_timer = 10  # Duração do efeito de levou_dano
 
     def get_hitbox(self):
         """Retorna o hitbox do player igual ao do inimigo (64x64), centralizado no sprite."""
@@ -135,7 +162,7 @@ class Player:
         if self.acao == 'run':
             frame_dur = 3  # Corrida: mais rápida
         elif self.acao == 'attack':
-            frame_dur = 6  # Ataque: já ajustado
+            frame_dur = 3  # Ataque: mais rápido
         else:
             frame_dur = 6  # Idle e outras
         if self.frame_timer >= frame_dur:
@@ -155,9 +182,10 @@ class Player:
         # Timer de ataque
         if self.atacando:
             self.ataque_timer -= 1
-            if self.ataque_timer <= 0:
+            if self.ataque_timer <= 0 or self.frame >= len(self.animacoes['attack'])-1:
                 self.atacando = False
                 self.acao = 'idle'
+                self.ja_acertou = False
         # Invencibilidade
         if self.invencivel:
             self.invencivel_timer -= 1
@@ -178,6 +206,9 @@ class Player:
             self.levou_dano_timer -= 1
             if self.levou_dano_timer <= 0:
                 self.levou_dano = False
+        # Defesa cooldown
+        if self.defesa_cooldown > 0:
+            self.defesa_cooldown -= 1
 
         # Detecta início da corrida para tocar som
         if hasattr(self, 'ultimo_estado_corrida'):
